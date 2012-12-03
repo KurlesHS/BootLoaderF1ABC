@@ -17,21 +17,10 @@ using System.IO.Ports;
 using System.Xml;
 using System.Runtime.InteropServices;
 
+
 namespace BootLoader
 {
-    public class RectConverter : IMultiValueConverter
-    {
-        public object Convert(object[] values, Type targetType, object parameter, System.Globalization.CultureInfo culture)
-        {
-            double width = (double)values[0];
-            double height = (double)values[1];
-            return new Rect(0, 0, width, height);
-        }
-        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, System.Globalization.CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
+
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -66,7 +55,7 @@ namespace BootLoader
                 if (settingFile.Substring(settingFile.Length - 1, 1) != "\\")
                     settingFile += "\\";
             settingFile += "settings.xml";
-            progressBar.Tag = "Выберите файл";
+            progressBar.Text = "Выберите файл";
             bool settingFileIsPresents = true;
             try
             {
@@ -84,13 +73,10 @@ namespace BootLoader
             }
             catch (Exception)
             {
-                settingFileIsPresents = false;
-                Debug.WriteLine(settingFile);
-                Debug.WriteLine("Her!!!");   
+                settingFileIsPresents = false; 
             }
             if (!settingFileIsPresents)
             {
-
                 updateSettings();
             }
         }
@@ -105,15 +91,15 @@ namespace BootLoader
         {
             if (e.Cancelled == true)
             {
-                progressBar.Tag = "Операция отменена";
+                progressBar.Text = "Операция отменена";
             }
             else if (e.Error != null)
             {
-                progressBar.Tag = String.Format("Ошибка: {0}", e.Error.Message);
+                progressBar.Text = String.Format("Ошибка: {0}", e.Error.Message);
             }
             else
             {
-                progressBar.Tag = e.Result.ToString();
+                progressBar.Text = e.Result.ToString();
             }
 
             ButtonSelectFile.IsEnabled = true;
@@ -138,6 +124,7 @@ namespace BootLoader
                     sp.BaudRate = 9600;
                     sp.Handshake = Handshake.None;
                     sp.StopBits = StopBits.One;
+                    sp.DataReceived += onSerialDataReceived;
                 }
                 catch (Exception)
                 {
@@ -166,6 +153,15 @@ namespace BootLoader
                 e.Result = "Устройство прошито успешно";
                 return;
             }
+        }
+
+        void onSerialDataReceived(object sender, SerialDataReceivedEventArgs e)
+        {
+            SerialPort sp = sender as SerialPort;
+            if (sp == null)
+                return;
+            //sp.Read()
+            return;
         }
 
         private void updateSettings()
@@ -198,25 +194,10 @@ namespace BootLoader
             }
             catch (Exception)
             {
-                Debug.WriteLine(settingFile);
-                Debug.WriteLine("Her 2!!!");
+
             }
         }
 
-        private void serialPortWorker(string portName)
-        {
-            
-        }
-
-        private void errorWhileFlashing (string error)
-        {
-            
-        }
-
-        private void flashingOk()
-        {
-
-        }
         delegate void delegateWithoutParam();
         delegate void delegateWithIntParam(int value);
         delegate void delegateWhthStringParam(string value);
@@ -233,7 +214,7 @@ namespace BootLoader
 
         private void setTextForProgressBar(string text)
         {
-            progressBar.Dispatcher.BeginInvoke(new delegateWhthStringParam(delegate(string x) { progressBar.Tag = x; }), text);
+            progressBar.Dispatcher.BeginInvoke(new delegateWhthStringParam(delegate(string x) { progressBar.Text = x; }), text);
         }
 
         protected static ushort GetChecksum(byte[] bytes, int startAddress = 0)
@@ -358,7 +339,7 @@ namespace BootLoader
             }
             if (!converted)
             {
-                progressBar.Tag = "Не верный формат hex файла";
+                progressBar.Text = "Не верный формат hex файла";
                 ButtonStartFlashing.IsEnabled = false;
             }
             else
@@ -370,7 +351,7 @@ namespace BootLoader
                 buffer[0xfffe] = (byte)crc;
                 encryptDecrypt(0x8000);
                 Debug.WriteLine(String.Format("minAddres = {0}, maxAddress = {1}", minAddress, maxAddress));
-                progressBar.Tag = "Всё готово к прошивке";
+                progressBar.Text = "Всё готово к прошивке";
             }
         }
 
@@ -415,7 +396,6 @@ namespace BootLoader
                 this.Top -= deltay;
                 this.Left -= deltax;
             }
-                
         }
 
         private void TextBlock_MouseLeftButtonDown_1(object sender, MouseButtonEventArgs e)
@@ -446,10 +426,8 @@ namespace BootLoader
             ButtonSelectFile.IsEnabled = false;
             ButtonStartFlashing.IsEnabled = false;
             comboboxForPortsNames.IsEnabled = false;
-            progressBar.Tag = "Идет прошивка, подождите...";
+            progressBar.Text = "Идет прошивка, подождите...";
             bgWorker.RunWorkerAsync(serialPort);
         }
-
-
     }
 }
