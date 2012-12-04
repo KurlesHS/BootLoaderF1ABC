@@ -234,6 +234,7 @@ namespace BootLoader
                                     packet.Add(1);
                                     packet.Add((byte)startAddress);
                                     packet.Add((byte)(startAddress >> 8));
+
                                     for (int i = 0; i < 128; ++i)
                                     {
                                         packet.Add(buffer[startAddress + i]);
