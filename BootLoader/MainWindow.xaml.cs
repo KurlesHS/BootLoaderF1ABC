@@ -166,24 +166,32 @@ namespace BootLoader
         {
             BackgroundWorker worker = sender as BackgroundWorker;
             readBufOffset = 0;
-            
+            UInt32 startAddress = (UInt32)minAddress;
+            uint iterators = (0x10000 - startAddress) / 128;
+            iterators += 4;
+            int curIter = 0;
+            setMaxValueForProgressBar((int)iterators);
+            setValueForProgressBar(curIter);
             Debug.WriteLine(String.Format("background: {0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
             if (worker == null)
                 return;
             string portName = e.Argument.ToString();
             string portStatus = String.Format("Порт {0} открыт", portName);
+            setTextForProgressBar(String.Format("Попытка открыть {0} порт", portName));
+            
             using (SerialPort sp = new SerialPort(portName))
             {
                 try
                 {
-                    sp.Parity = System.IO.Ports.Parity.None;
                     sp.DataReceived += onSerialDataReceived;
-
+                    sp.Open();
+                    setValueForProgressBar(++curIter);
+                    sp.Parity = System.IO.Ports.Parity.None;
                     sp.DataBits = 8;
                     sp.BaudRate = 9600;
                     sp.Handshake = Handshake.None;
                     sp.StopBits = StopBits.One;
-                    sp.Open();
+                    
 
                 }
                 catch (Exception)
@@ -200,9 +208,11 @@ namespace BootLoader
                 {
                     sp.Write(new ASCIIEncoding().GetBytes("start"), 0, 5);
                     currentFlashStatus = flaserStatus.waitReady;
-                    UInt32 startAddress = (UInt32)minAddress;
+            
+
                     timer.Start();
                     bool isProcess = true;
+                    
                     while (isProcess)
                     {
                         System.Threading.Thread.Sleep(0);
@@ -215,6 +225,7 @@ namespace BootLoader
                             case flaserStatus.ready:
                             case flaserStatus.readyToSendNextPacket:
                                 {
+                                    setValueForProgressBar(++curIter);
                                     timer.Stop();
                                     List<byte> packet = new List<byte>();
                                     if (startAddress >= 0x10000)
@@ -269,12 +280,14 @@ namespace BootLoader
                                 break;
                             case flaserStatus.lastPacket:
                                 {
+                                    setValueForProgressBar(++curIter);
                                     isProcess = false;
                                     e.Result = "Устройство прошито";
                                 }
                                 break;
                         }
                     }
+                    setValueForProgressBar((int)iterators);
                 }
                 catch (Exception exc)
                 {
@@ -308,6 +321,8 @@ namespace BootLoader
         static private int readBufOffset = 0;
         void onSerialDataReceived(object sender, SerialDataReceivedEventArgs e)
         {
+            Debug.WriteLine(String.Format("readyread: {0}", System.Threading.Thread.CurrentThread.ManagedThreadId));
+
             lock (locker)
             {
                 SerialPort sp = sender as SerialPort;
