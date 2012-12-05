@@ -35,7 +35,7 @@ namespace BootLoader
         private BackgroundWorker bgWorker = new BackgroundWorker();
         string[] ports;
         string settingFile;
-        enum flaserStatus
+        enum flasherStatus
         {
             waitReady,
             ready,
@@ -49,14 +49,14 @@ namespace BootLoader
         }
         public MainWindow()
         {
-            List<byte>array = new List<byte>() { 12, 12, 43, 54, 34, 23, 23,33 };
+            List<byte> array = new List<byte>() { 12, 12, 43, 54, 34, 23, 23, 33 };
             UInt16 crc = chksm(array.ToArray());
-            
+
             array.Add((byte)(crc >> 8));
-            array.Add((byte)crc); 
+            array.Add((byte)crc);
 
             Debug.WriteLine(String.Format("crc: {0}, {1:x2}", _CRC(array.ToArray()), crc));
-            
+
             InitializeComponent();
             bgWorker.WorkerReportsProgress = true;
             bgWorker.WorkerSupportsCancellation = true;
@@ -93,7 +93,7 @@ namespace BootLoader
             }
             catch (Exception)
             {
-                settingFileIsPresents = false; 
+                settingFileIsPresents = false;
             }
             if (!settingFileIsPresents)
             {
@@ -104,7 +104,7 @@ namespace BootLoader
         }
         // проверка крк пакета возращает 1 если верно
         byte _CRC(byte[] array)
-        {    
+        {
 
             UInt64 sum = 0;
             byte i = 0;
@@ -159,9 +159,26 @@ namespace BootLoader
             ButtonStartFlashing.IsEnabled = true;
             comboboxForPortsNames.IsEnabled = true;
         }
+
+        void recalculateCRC()
+        {
+
+            byte[] crc = new byte[] { 0, 0, 0, 0 };
+            for (int i = 0; i < (buffer.Length - 4); i += 4)
+            {
+                crc[0] ^= buffer[i];
+                crc[1] ^= buffer[i + 1];
+                crc[2] ^= buffer[i + 2];
+                crc[3] ^= buffer[i + 3];
+            }
+            for (int i = 0; i < 4; ++i )
+                buffer[0xfffc + 1] = crc[0 + i];
+            
+        }
+
         private System.Timers.Timer timer;
         private static readonly object locker = new Object();
-        private flaserStatus currentFlashStatus;
+        private flasherStatus currentFlashStatus;
         void bgWorker_DoWork(object sender, DoWorkEventArgs e)
         {
             BackgroundWorker worker = sender as BackgroundWorker;
@@ -178,20 +195,21 @@ namespace BootLoader
             string portName = e.Argument.ToString();
             string portStatus = String.Format("Порт {0} открыт", portName);
             setTextForProgressBar(String.Format("Попытка открыть {0} порт", portName));
-            
+
             using (SerialPort sp = new SerialPort(portName))
             {
                 try
                 {
                     sp.DataReceived += onSerialDataReceived;
-                    sp.Open();
-                    setValueForProgressBar(++curIter);
-                    sp.Parity = System.IO.Ports.Parity.None;
+                    sp.Parity = Parity.None;
                     sp.DataBits = 8;
                     sp.BaudRate = 9600;
                     sp.Handshake = Handshake.None;
                     sp.StopBits = StopBits.One;
-                    
+                    sp.Open();
+                    setValueForProgressBar(++curIter);
+
+
 
                 }
                 catch (Exception)
@@ -207,23 +225,23 @@ namespace BootLoader
                 try
                 {
                     sp.Write(new ASCIIEncoding().GetBytes("start"), 0, 5);
-                    currentFlashStatus = flaserStatus.waitReady;
-            
+                    currentFlashStatus = flasherStatus.waitReady;
+
 
                     timer.Start();
                     bool isProcess = true;
-                    
+
                     while (isProcess)
                     {
                         System.Threading.Thread.Sleep(0);
                         switch (currentFlashStatus)
                         {
-                            case flaserStatus.waitReady:
-                            case flaserStatus.waitResponse:
-                            case flaserStatus.waitLastResponse:
+                            case flasherStatus.waitReady:
+                            case flasherStatus.waitResponse:
+                            case flasherStatus.waitLastResponse:
                                 break;
-                            case flaserStatus.ready:
-                            case flaserStatus.readyToSendNextPacket:
+                            case flasherStatus.ready:
+                            case flasherStatus.readyToSendNextPacket:
                                 {
                                     setValueForProgressBar(++curIter);
                                     timer.Stop();
@@ -231,7 +249,7 @@ namespace BootLoader
                                     if (startAddress >= 0x10000)
                                     {
                                         // всё, прошили
-                                        
+
                                         packet.Add(6);
                                         packet.Add(3);
                                         packet.Add(0);
@@ -239,9 +257,10 @@ namespace BootLoader
                                         codeList(ref packet);
                                         timer.Interval = 7000;
                                         timer.Start();
+                                        currentFlashStatus = flasherStatus.waitLastResponse;
                                         break;
                                     }
-                                    packet.Add(132);
+                                    packet.Add(134);
                                     packet.Add(1);
                                     packet.Add((byte)startAddress);
                                     packet.Add((byte)(startAddress >> 8));
@@ -255,30 +274,31 @@ namespace BootLoader
                                     packet.Add((byte)crc);
                                     codeList(ref packet);
                                     sp.Write(packet.ToArray(), 0, packet.Count);
-                                    currentFlashStatus = flaserStatus.waitResponse;
+                                    currentFlashStatus = flasherStatus.waitResponse;
                                     timer.Interval = 3000;
                                     timer.Start();
+                                    startAddress += 128;
                                 }
                                 break;
-                            case flaserStatus.timeout:
+                            case flasherStatus.timeout:
                                 {
                                     isProcess = false;
                                     e.Result = "Превышено время ожидания ответа от устройства";
                                 }
                                 break;
-                            case flaserStatus.wrongPacket:
+                            case flasherStatus.wrongPacket:
                                 {
                                     isProcess = false;
                                     e.Result = "Принят не верный ответ от устройства";
                                 }
                                 break;
-                            case flaserStatus.bad:
+                            case flasherStatus.bad:
                                 {
                                     isProcess = false;
                                     e.Result = "Устройство отрапортовало об ошибке";
                                 }
                                 break;
-                            case flaserStatus.lastPacket:
+                            case flasherStatus.lastPacket:
                                 {
                                     setValueForProgressBar(++curIter);
                                     isProcess = false;
@@ -299,21 +319,21 @@ namespace BootLoader
                 {
                     timer.Stop();
                 }
-                
+
                 return;
             }
         }
 
-        void codeList (ref List<byte> lst)
+        void codeList(ref List<byte> lst)
         {
             for (int i = 0; i < lst.Count; ++i)
-                lst[i] ^= 95;
+                lst[i] ^= 0x95;
         }
         void onTimer2(object sender, System.Timers.ElapsedEventArgs e)
         {
             lock (locker)
             {
-                currentFlashStatus = flaserStatus.timeout;
+                currentFlashStatus = flasherStatus.timeout;
             }
         }
 
@@ -333,15 +353,18 @@ namespace BootLoader
                 readBufOffset += len;
                 switch (currentFlashStatus)
                 {
-                    case flaserStatus.waitReady:
+                    case flasherStatus.waitReady:
                         {
                             string response = Encoding.ASCII.GetString(readBuf, 0, readBufOffset);
                             if (response == "bad")
-                                currentFlashStatus = flaserStatus.bad;
+                                currentFlashStatus = flasherStatus.bad;
                             else if (response == "ready")
-                                currentFlashStatus = flaserStatus.readyToSendNextPacket;
+                            {
+                                currentFlashStatus = flasherStatus.readyToSendNextPacket;
+                                readBufOffset = 0;
+                            }
                             else if (readBufOffset >= 5)
-                                currentFlashStatus = flaserStatus.wrongPacket;
+                                currentFlashStatus = flasherStatus.wrongPacket;
                             else
                             {
                                 timer.Interval = 1000;
@@ -349,15 +372,18 @@ namespace BootLoader
                             }
                         }
                         break;
-                    case flaserStatus.waitResponse:
+                    case flasherStatus.waitResponse:
                         {
                             string response = Encoding.ASCII.GetString(readBuf, 0, readBufOffset);
                             if (response == "bad")
-                                currentFlashStatus = flaserStatus.bad;
+                                currentFlashStatus = flasherStatus.bad;
                             else if (response == "good")
-                                currentFlashStatus = flaserStatus.readyToSendNextPacket;
+                            {
+                                currentFlashStatus = flasherStatus.readyToSendNextPacket;
+                                readBufOffset = 0;
+                            }
                             else if (readBufOffset >= 4)
-                                currentFlashStatus = flaserStatus.wrongPacket;
+                                currentFlashStatus = flasherStatus.wrongPacket;
                             else
                             {
                                 timer.Interval = 1000;
@@ -365,15 +391,18 @@ namespace BootLoader
                             }
                         }
                         break;
-                    case flaserStatus.waitLastResponse:
+                    case flasherStatus.waitLastResponse:
                         {
                             string response = Encoding.ASCII.GetString(readBuf, 0, readBufOffset);
                             if (response == "bad")
-                                currentFlashStatus = flaserStatus.bad;
+                                currentFlashStatus = flasherStatus.bad;
                             else if (response == "ready")
-                                currentFlashStatus = flaserStatus.lastPacket;
+                            {
+                                currentFlashStatus = flasherStatus.lastPacket;
+                                readBufOffset = 0;
+                            }
                             else if (readBufOffset >= 5)
-                                currentFlashStatus = flaserStatus.wrongPacket;
+                                currentFlashStatus = flasherStatus.wrongPacket;
                             else
                             {
                                 timer.Interval = 1000;
@@ -383,7 +412,7 @@ namespace BootLoader
                         break;
                     default:
                         {
-                            currentFlashStatus = flaserStatus.wrongPacket;
+                            currentFlashStatus = flasherStatus.wrongPacket;
                         }
                         break;
                 }
@@ -426,7 +455,7 @@ namespace BootLoader
         }
         private void setMaxValueForProgressBar(int value)
         {
-            progressBar.Dispatcher.BeginInvoke(new Action<int>((x) => {progressBar.Maximum = x;}), value);
+            progressBar.Dispatcher.BeginInvoke(new Action<int>((x) => { progressBar.Maximum = x; }), value);
         }
 
         private void setValueForProgressBar(int value)
@@ -568,10 +597,16 @@ namespace BootLoader
             else
             {
                 ButtonStartFlashing.IsEnabled = true;
-                ushort crc = GetChecksum(buffer, minAddress);
-                // добавляем крк в конец файла
-                buffer[0xffff] = (byte)(crc >> 8);
-                buffer[0xfffe] = (byte)crc;
+                recalculateCRC();
+                // подводим к границе 128 байт
+                minAddress -= minAddress % 128;
+                ++maxAddress;
+                if (maxAddress % 128 != 0)
+                {
+                    maxAddress -= maxAddress % 128;
+                    maxAddress += 128;
+                }
+
                 Debug.WriteLine(String.Format("minAddres = {0}, maxAddress = {1}", minAddress, maxAddress));
                 progressBar.Text = "Всё готово к прошивке";
             }
@@ -627,7 +662,7 @@ namespace BootLoader
             if (el == null)
                 return;
             if (e.LeftButton == MouseButtonState.Pressed)
-                mouseIsCaptured =  el.CaptureMouse();
+                mouseIsCaptured = el.CaptureMouse();
             lastMousePos = GetMousePosition();
         }
 
