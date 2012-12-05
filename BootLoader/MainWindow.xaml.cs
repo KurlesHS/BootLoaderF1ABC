@@ -45,7 +45,8 @@ namespace BootLoader
             wrongPacket,
             bad,
             waitLastResponse,
-            lastPacket
+            lastPacket,
+            
         }
         public MainWindow()
         {
@@ -184,7 +185,7 @@ namespace BootLoader
             BackgroundWorker worker = sender as BackgroundWorker;
             readBufOffset = 0;
             UInt32 startAddress = (UInt32)minAddress;
-            uint iterators = (0x10000 - startAddress) / 128;
+            uint iterators = ((uint)maxAddress - startAddress) / 128;
             iterators += 4;
             int curIter = 0;
             setMaxValueForProgressBar((int)iterators);
@@ -230,7 +231,7 @@ namespace BootLoader
 
                     timer.Start();
                     bool isProcess = true;
-
+                    int tempMaxAddress = maxAddress;
                     while (isProcess)
                     {
                         System.Threading.Thread.Sleep(0);
@@ -246,6 +247,7 @@ namespace BootLoader
                                     setValueForProgressBar(++curIter);
                                     timer.Stop();
                                     List<byte> packet = new List<byte>();
+                                    UInt16 crc;
                                     if (startAddress >= 0x10000)
                                     {
                                         // всё, прошили
@@ -254,12 +256,37 @@ namespace BootLoader
                                         packet.Add(3);
                                         packet.Add(0);
                                         packet.Add(0);
+                                        crc = chksm(packet.ToArray());
+                                        packet.Add((byte)(crc >> 8));
+                                        packet.Add((byte)crc);
                                         codeList(ref packet);
                                         timer.Interval = 7000;
                                         timer.Start();
                                         currentFlashStatus = flasherStatus.waitLastResponse;
+                                        sp.Write(packet.ToArray(), 0, packet.Count);
                                         break;
                                     }
+                                    if (startAddress >= tempMaxAddress) 
+                                    {
+                                        // закончились полезные данные
+                                        packet.Add(6);
+                                        packet.Add(2);
+                                        packet.Add((byte)maxAddress);
+                                        packet.Add((byte)(maxAddress >> 8));
+                                        crc = chksm(packet.ToArray());
+                                        packet.Add((byte)(crc >> 8));
+                                        packet.Add((byte)crc);
+                                        codeList(ref packet);
+                                        startAddress = 0xff80;
+                                        tempMaxAddress = 0x100000;
+                                        currentFlashStatus = flasherStatus.waitResponse;
+                                        sp.Write(packet.ToArray(), 0, packet.Count);
+                                        timer.Interval = 7000;
+                                        timer.Start();
+                                        
+                                        break;
+                                    }
+                                        
                                     packet.Add(134);
                                     packet.Add(1);
                                     packet.Add((byte)startAddress);
@@ -269,12 +296,12 @@ namespace BootLoader
                                     {
                                         packet.Add(buffer[startAddress + i]);
                                     }
-                                    UInt16 crc = chksm(packet.ToArray());
+                                    crc = chksm(packet.ToArray());
                                     packet.Add((byte)(crc >> 8));
                                     packet.Add((byte)crc);
                                     codeList(ref packet);
-                                    sp.Write(packet.ToArray(), 0, packet.Count);
                                     currentFlashStatus = flasherStatus.waitResponse;
+                                    sp.Write(packet.ToArray(), 0, packet.Count);
                                     timer.Interval = 3000;
                                     timer.Start();
                                     startAddress += 128;
@@ -601,6 +628,8 @@ namespace BootLoader
                 // подводим к границе 128 байт
                 minAddress -= minAddress % 128;
                 ++maxAddress;
+                // maxAddress - первый свободный адрес
+                // так же к границе 128 байт подводим, но тут к верхней
                 if (maxAddress % 128 != 0)
                 {
                     maxAddress -= maxAddress % 128;
