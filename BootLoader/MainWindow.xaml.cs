@@ -161,20 +161,18 @@ namespace BootLoader
             comboboxForPortsNames.IsEnabled = true;
         }
 
-        void recalculateCRC()
+        byte[] calculateCRC()
         {
 
             byte[] crc = new byte[] { 0, 0, 0, 0 };
-            for (int i = 0; i < (buffer.Length - 4); i += 4)
+            for (int i = 0; i < (buffer.Length); i += 4)
             {
                 crc[0] ^= buffer[i];
                 crc[1] ^= buffer[i + 1];
                 crc[2] ^= buffer[i + 2];
                 crc[3] ^= buffer[i + 3];
             }
-            for (int i = 0; i < 4; ++i )
-                buffer[0xfffc + 1] = crc[0 + i];
-            
+            return crc;
         }
 
         private System.Timers.Timer timer;
@@ -232,6 +230,7 @@ namespace BootLoader
                     timer.Start();
                     bool isProcess = true;
                     int tempMaxAddress = maxAddress;
+                    bool crcIsSended = false;
                     while (isProcess)
                     {
                         System.Threading.Thread.Sleep(0);
@@ -251,20 +250,43 @@ namespace BootLoader
                                     if (startAddress >= 0x10000)
                                     {
                                         // всё, прошили
-
-                                        packet.Add(6);
-                                        packet.Add(3);
-                                        packet.Add(0);
-                                        packet.Add(0);
-                                        crc = chksm(packet.ToArray());
-                                        packet.Add((byte)(crc >> 8));
-                                        packet.Add((byte)crc);
-                                        codeList(ref packet);
-                                        timer.Interval = 7000;
-                                        timer.Start();
-                                        currentFlashStatus = flasherStatus.waitLastResponse;
-                                        sp.Write(packet.ToArray(), 0, packet.Count);
-                                        break;
+                                        if (crcIsSended)
+                                        {
+                                            packet.Add(6);
+                                            packet.Add(4);
+                                            packet.Add(0);
+                                            packet.Add(0);
+                                            crc = chksm(packet.ToArray());
+                                            packet.Add((byte)(crc >> 8));
+                                            packet.Add((byte)crc);
+                                            codeList(ref packet);
+                                            timer.Interval = 7000;
+                                            timer.Start();
+                                            currentFlashStatus = flasherStatus.waitLastResponse;
+                                            sp.Write(packet.ToArray(), 0, packet.Count);
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            // посылаем crc
+                                            packet.Add(10);
+                                            packet.Add(3);
+                                            packet.Add(0);
+                                            packet.Add(0);
+                                            byte[] crcOfMemory = calculateCRC();
+                                            for (int i = 0; i < 4; ++i )
+                                                packet.Add(crcOfMemory[i]);
+                                            crc = chksm(packet.ToArray());
+                                            packet.Add((byte)(crc >> 8));
+                                            packet.Add((byte)crc);
+                                            codeList(ref packet);
+                                            timer.Interval = 7000;
+                                            timer.Start();
+                                            crcIsSended = true;
+                                            currentFlashStatus = flasherStatus.waitResponse;
+                                            sp.Write(packet.ToArray(), 0, packet.Count);
+                                            break;
+                                        }
                                     }
                                     if (startAddress >= tempMaxAddress) 
                                     {
@@ -277,7 +299,7 @@ namespace BootLoader
                                         packet.Add((byte)(crc >> 8));
                                         packet.Add((byte)crc);
                                         codeList(ref packet);
-                                        startAddress = 0xff80;
+                                        startAddress = 0x10000;
                                         tempMaxAddress = 0x100000;
                                         currentFlashStatus = flasherStatus.waitResponse;
                                         sp.Write(packet.ToArray(), 0, packet.Count);
@@ -423,12 +445,12 @@ namespace BootLoader
                             string response = Encoding.ASCII.GetString(readBuf, 0, readBufOffset);
                             if (response == "bad")
                                 currentFlashStatus = flasherStatus.bad;
-                            else if (response == "ready")
+                            else if (response == "good")
                             {
                                 currentFlashStatus = flasherStatus.lastPacket;
                                 readBufOffset = 0;
                             }
-                            else if (readBufOffset >= 5)
+                            else if (readBufOffset >= 4)
                                 currentFlashStatus = flasherStatus.wrongPacket;
                             else
                             {
@@ -624,7 +646,6 @@ namespace BootLoader
             else
             {
                 ButtonStartFlashing.IsEnabled = true;
-                recalculateCRC();
                 // подводим к границе 128 байт
                 minAddress -= minAddress % 128;
                 ++maxAddress;
