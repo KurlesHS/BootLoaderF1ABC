@@ -56,8 +56,9 @@
                 <Grid Grid.Row="2">
                     <StackPanel  Orientation="Horizontal" HorizontalAlignment="Stretch" CanHorizontallyScroll="False" CanVerticallyScroll="False" Grid.Column="0">
                         <Button Margin="30,5,5,5" x:Name="ButtonSelectFile" Content="Выбор файла" Click="ButtonSelectFile_Click"></Button>
-                        <Button Margin="5" x:Name="ButtonStartFlashing" Content="Прошить" IsEnabled="False" Click="ButtonStartFlashing_Click"></Button>
-                    </StackPanel>
+                        <Button Margin="5" x:Name="ButtonSelectAndFlashing" Content="Выбрать файл и прошить" IsEnabled="true" Click="ButtonSelectAndFlashing_Click"></Button>
+                        <Button Margin="5" x:Name="ButtonStartFlashing" Content="Повторно прошить" IsEnabled="False" Click="ButtonStartFlashing_Click"></Button>
+                     </StackPanel>
                         <Button Margin="5" x:Name="ButtonCloseWindow" Content="Закрыть" HorizontalAlignment="Right" Click="ButtonCloseWindow_Click"/>
                 </Grid>
             </Grid>

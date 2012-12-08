@@ -158,6 +158,7 @@ namespace BootLoader
             ButtonSelectFile.IsEnabled = true;
             ButtonStartFlashing.IsEnabled = true;
             comboboxForPortsNames.IsEnabled = true;
+            ButtonSelectAndFlashing.IsEnabled = true;
         }
         private System.Timers.Timer timer;
         private static readonly object locker = new Object();
@@ -478,19 +479,6 @@ namespace BootLoader
             }
         }
 
-        private void ButtonSelectFile_Click(object sender, RoutedEventArgs e)
-        {
-            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
-            dlg.DefaultExt = ".hex";
-            dlg.Filter = "HEX files (*.hex)|*.hex";
-            Nullable<bool> result = dlg.ShowDialog();
-            if (result == true)
-            {
-                hexFilename = dlg.FileName;
-                parseHexFile();
-                updateSettings();
-            }
-        }
         private int minAddress;
         private int maxAddress;
         private void parseHexFile()
@@ -648,8 +636,32 @@ namespace BootLoader
             ButtonSelectFile.IsEnabled = false;
             ButtonStartFlashing.IsEnabled = false;
             comboboxForPortsNames.IsEnabled = false;
+            ButtonSelectAndFlashing.IsEnabled = false;
             progressBar.Text = "Идет прошивка, подождите...";
             bgWorker.RunWorkerAsync(serialPort);
+        }
+
+        private void ButtonSelectFile_Click(object sender, RoutedEventArgs e)
+        {
+            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
+            dlg.DefaultExt = ".hex";
+            dlg.Filter = "HEX files (*.hex)|*.hex";
+            Nullable<bool> result = dlg.ShowDialog();
+            if (result == true)
+            {
+                hexFilename = dlg.FileName;
+                parseHexFile();
+                updateSettings();
+            }
+        }
+
+        private void ButtonSelectAndFlashing_Click(object sender, RoutedEventArgs e)
+        {
+            ButtonSelectFile_Click(this, new RoutedEventArgs());
+            if (ButtonStartFlashing.IsEnabled)
+                ButtonStartFlashing_Click(this, new RoutedEventArgs());
+            else
+                progressBar.Text = "Херню вы какую то выбрали, батенька";
         }
     }
 }
