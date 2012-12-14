@@ -90,6 +90,7 @@ namespace BootLoader
                         serialPort = node.InnerText;
                 }
                 parseHexFile();
+                ButtonStartFlashing.IsEnabled = true;
                 comboboxForPortsNames.SelectedItem = serialPort;
             }
             catch (Exception)
@@ -718,6 +719,12 @@ namespace BootLoader
 
         private void ButtonStartFlashing_Click(object sender, RoutedEventArgs e)
         {
+            parseHexFile();
+            if (!ButtonStartFlashing.IsEnabled)
+            {   
+                ButtonStartFlashing.IsEnabled = true;
+                return;
+            }
             ButtonSelectFile.IsEnabled = false;
             ButtonStartFlashing.IsEnabled = false;
             comboboxForPortsNames.IsEnabled = false;
