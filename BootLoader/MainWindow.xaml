@@ -15,8 +15,8 @@
                 <LinearGradientBrush>
                     <GradientBrush.GradientStops>
                         <GradientStopCollection>
-                            <GradientStop Color="#e7ebf7" Offset="0.0"></GradientStop>
-                            <GradientStop Color="#cee3ff" Offset="0.5"></GradientStop>
+                            <GradientStop Color="#e7ebf7" Offset="0.0" />
+                            <GradientStop Color="#cee3ff" Offset="0.5" />
                         </GradientStopCollection>
                     </GradientBrush.GradientStops>
                 </LinearGradientBrush>
@@ -24,10 +24,10 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition x:Name="footer" Height="auto"/>
-                    <RowDefinition></RowDefinition>
-                    <RowDefinition Height="auto"></RowDefinition>
+                    <RowDefinition />
+                    <RowDefinition Height="auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="Прошивальщик от Курлеса 0.0.1" Padding="5" MouseLeftButtonDown="TextBlock_MouseLeftButtonDown_1" MouseLeftButtonUp="TextBlock_MouseLeftButtonUp_1"></TextBlock>
+                <TextBlock Text="Прошивальщик от Курлеса 0.0.1" Padding="5" MouseLeftButtonDown="TextBlock_MouseLeftButtonDown_1" MouseLeftButtonUp="TextBlock_MouseLeftButtonUp_1" />
                 <Grid Grid.Row="1" Background="#B5CBEF">
                          <Grid>
         <Grid.RowDefinitions>
@@ -55,10 +55,10 @@
                 </Grid>
                 <Grid Grid.Row="2">
                     <StackPanel  Orientation="Horizontal" HorizontalAlignment="Stretch" CanHorizontallyScroll="False" CanVerticallyScroll="False" Grid.Column="0">
-                        <Button Margin="30,5,5,5" x:Name="ButtonSelectFile" Content="Выбор файла" Click="ButtonSelectFile_Click"></Button>
-                        <Button Margin="5" x:Name="ButtonSelectAndFlashing" Content="Выбрать файл и прошить" IsEnabled="true" Click="ButtonSelectAndFlashing_Click"></Button>
-                        <Button Margin="5" x:Name="ButtonStartFlashing" Content="Повторно прошить" IsEnabled="False" Click="ButtonStartFlashing_Click"></Button>
-                     </StackPanel>
+                        <Button Margin="30,5,5,5" x:Name="ButtonSelectFile" Content="Выбор файла" Click="ButtonSelectFile_Click" />
+                        <Button Margin="5" x:Name="ButtonSelectAndFlashing" Content="Выбрать файл и прошить" IsEnabled="true" Click="ButtonSelectAndFlashing_Click" />
+                        <Button Margin="5" x:Name="ButtonStartFlashing" Content="Повторно прошить" IsEnabled="False" Click="ButtonStartFlashing_Click" />
+                    </StackPanel>
                         <Button Margin="5" x:Name="ButtonCloseWindow" Content="Закрыть" HorizontalAlignment="Right" Click="ButtonCloseWindow_Click"/>
                 </Grid>
             </Grid>
