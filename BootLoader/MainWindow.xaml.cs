@@ -204,7 +204,7 @@ namespace BootLoader
                     sp.DataReceived += onSerialDataReceived;
                     sp.Parity = Parity.None;
                     sp.DataBits = 8;
-                    sp.BaudRate = 9600;
+                    sp.BaudRate = 38400;
                     sp.Handshake = Handshake.None;
                     sp.StopBits = StopBits.One;
                     sp.Open();
@@ -364,11 +364,11 @@ namespace BootLoader
                 {
 
                     e.Result = exc.Message;
-                    return;
                 }
                 finally
                 {
                     timer.Stop();
+                    sp.Close();
                 }
 
                 return;
@@ -565,89 +565,93 @@ namespace BootLoader
             labelForFileName.Text = hexFilename;
             for (int i = 0; i < 0x10000; ++i)
                 buffer[i] = 0x00;
-            StreamReader sr = new StreamReader(hexFilename);
-            minAddress = 0x10000;
-            maxAddress = 0;
-            bool converted = true;
-            while (!sr.EndOfStream)
-            {
-                string line = sr.ReadLine();
 
-                try
+            using (StreamReader sr = new StreamReader(hexFilename))
+            {
+
+                minAddress = 0x10000;
+                maxAddress = 0;
+                bool converted = true;
+                while (!sr.EndOfStream)
                 {
-                    if (line.Substring(0, 1) != ":")
-                        throw new Exception();
-                    byte crc = 0;
-                    // считаем контрольную сумму
-                    for (int x = 1; x < line.Length; x += 2)
+                    string line = sr.ReadLine();
+
+                    try
                     {
-                        byte val = Convert.ToByte(line.Substring(x, 2), 16);
-                        crc += val;
-                    }
-                    if (crc != 0)
-                        throw new Exception();
-                    // контрольная сумма совпала
-                    int lenData = Convert.ToInt32(line.Substring(1, 2), 16);
-                    int startAddress = Convert.ToInt32(line.Substring(3, 4), 16);
-                    int type = Convert.ToInt32(line.Substring(7, 2), 16);
-                    switch (type)
-                    {
-                        case 5:
-                            {
-                                // pc counter. Игнорируем
-                            }
-                            break;
-                        case 1:
-                            {
-                                // конец файла
-                                if (lenData != 0)
-                                    throw new Exception();
-                            }
-                            break;
-                        case 0:
-                            {
-                                // данные
-                                // заполняем буфер
-                                for (int i = 0; i < lenData; ++i)
-                                    buffer[i + startAddress] = Convert.ToByte(line.Substring(i * 2 + 9, 2), 16);
-                                //корректируем занчения
-                                if (minAddress > startAddress)
-                                    minAddress = startAddress;
-                                if (maxAddress < (startAddress + lenData))
-                                    maxAddress = startAddress + lenData;
-                            }
-                            break;
-                        default:
+                        if (line.Substring(0, 1) != ":")
                             throw new Exception();
+                        byte crc = 0;
+                        // считаем контрольную сумму
+                        for (int x = 1; x < line.Length; x += 2)
+                        {
+                            byte val = Convert.ToByte(line.Substring(x, 2), 16);
+                            crc += val;
+                        }
+                        if (crc != 0)
+                            throw new Exception();
+                        // контрольная сумма совпала
+                        int lenData = Convert.ToInt32(line.Substring(1, 2), 16);
+                        int startAddress = Convert.ToInt32(line.Substring(3, 4), 16);
+                        int type = Convert.ToInt32(line.Substring(7, 2), 16);
+                        switch (type)
+                        {
+                            case 5:
+                                {
+                                    // pc counter. Игнорируем
+                                }
+                                break;
+                            case 1:
+                                {
+                                    // конец файла
+                                    if (lenData != 0)
+                                        throw new Exception();
+                                }
+                                break;
+                            case 0:
+                                {
+                                    // данные
+                                    // заполняем буфер
+                                    for (int i = 0; i < lenData; ++i)
+                                        buffer[i + startAddress] = Convert.ToByte(line.Substring(i * 2 + 9, 2), 16);
+                                    //корректируем занчения
+                                    if (minAddress > startAddress)
+                                        minAddress = startAddress;
+                                    if (maxAddress < (startAddress + lenData))
+                                        maxAddress = startAddress + lenData;
+                                }
+                                break;
+                            default:
+                                throw new Exception();
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        converted = false;
+                        break;
                     }
                 }
-                catch (Exception)
+                if (!converted)
                 {
-                    converted = false;
-                    break;
+                    progressBar.Text = "Не верный формат hex файла";
+                    ButtonStartFlashing.IsEnabled = false;
                 }
-            }
-            if (!converted)
-            {
-                progressBar.Text = "Не верный формат hex файла";
-                ButtonStartFlashing.IsEnabled = false;
-            }
-            else
-            {
-                ButtonStartFlashing.IsEnabled = true;
-                // подводим к границе 128 байт
-                minAddress -= minAddress % 128;
-                ++maxAddress;
-                // maxAddress - первый свободный адрес
-                // так же к границе 128 байт подводим, но тут к верхней
-                if (maxAddress % 128 != 0)
+                else
                 {
-                    maxAddress -= maxAddress % 128;
-                    maxAddress += 128;
-                }
+                    ButtonStartFlashing.IsEnabled = true;
+                    // подводим к границе 128 байт
+                    minAddress -= minAddress % 128;
+                    ++maxAddress;
+                    // maxAddress - первый свободный адрес
+                    // так же к границе 128 байт подводим, но тут к верхней
+                    if (maxAddress % 128 != 0)
+                    {
+                        maxAddress -= maxAddress % 128;
+                        maxAddress += 128;
+                    }
 
-                Debug.WriteLine(String.Format("minAddres = {0}, maxAddress = {1}", minAddress, maxAddress));
-                progressBar.Text = "Всё готово к прошивке";
+                    Debug.WriteLine(String.Format("minAddres = {0}, maxAddress = {1}", minAddress, maxAddress));
+                    progressBar.Text = "Всё готово к прошивке";
+                }
             }
         }
 
